@@ -238,9 +238,15 @@ int main(){
 
 这里要指出的是，const T&其实它可以不止指向一个左值，如果指向一个右值的话，其实相当于指向了一个临时对象（当然这种行为并不好）。再插一嘴，比如const int&，甚至可以指向非int类型的右值，语法，很神奇吧。
 
-![image-20240709103553297](https://raw.githubusercontent.com/YaoYao-Pig/YaoYaoZhu-Pic/main/image-20240709103553297.png)
-
-<center>《C++程序语言设计.第1-3部分 4th》7.7.1</center>
+<div>			<!--块级封装-->
+    <center>	<!--将图片和文字居中-->
+    <img src="https://raw.githubusercontent.com/YaoYao-Pig/YaoYaoZhu-Pic/main/image-20240709103553297.png"
+         alt="无法显示图片时显示的文字"
+         style="zoom:这里写图片的缩放百分比"/>
+    <br>		<!--换行-->
+    《C++程序语言设计.第1-3部分 4th》7.7.1	<!--标题-->
+    </center>
+</div>
 
 ### T&
 
