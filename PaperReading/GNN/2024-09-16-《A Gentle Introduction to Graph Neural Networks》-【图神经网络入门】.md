@@ -71,7 +71,7 @@ User Model，Item Model，Social Model
 
 ![image-20240917000049784](./assets/image-20240917000049784.png)
 
-所有的部分都是在分散图上进行的，分散图把原本的二分图拆成了三种图：User-Item，Item-User，User，User
+所有的部分都是在分散图上进行的，分散图把原本的二分图拆成了三种图：User-Item，Item-User，User-User
 
 ![image-20240917000401786](./assets/image-20240917000401786.png)
 
