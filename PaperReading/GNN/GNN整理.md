@@ -29,17 +29,18 @@
       2. 拿到动态兴趣之后，然后再根据社交图，考虑邻居节点的影响（话句话说，就是根据当前的兴趣，得到之后的兴趣）（Time-Aware Service Recommendation With Social-Powered Graph Hierarchical Attention Network）（加上社交图）
       3. 通过Session拿到动态兴趣（一段时间内的喜好变化），然后根据用户和物品的静态图，再捕捉静态图信息。最后动态静态合在一起（**Graph Neural Networks with Dynamic and Static Representations for Social Recommendation**）
       4. 根据全局每一个人的Session，做一个K聚类。（也就是说有K种爱好），然后根据类型聚合爱好，最后拿到一个最后的用户的embeding，根据这个embedding推理下一个（Graphical contrastive learning for multi-interest sequential recommendation）
+      5. 不单单考虑用户兴趣变化，也考虑商品含义的动态变化：（ipad再2017年是高级产品，但是再2021年可能就是评价的消费品）——全局动态图+局部动态图（全局动态图就是两个时间戳当中，全局图的变化）（局部动态就是指的对于一个用户来说，他的session的变化）（Evolving intra-and inter-session graph fusion for next item recommendation）
    2. 基于会话的图：
       1. 用户的feature是用他们的交互Sequence决定的
    3. 多兴趣推荐
    4. 用户偏置：不同用户对于评分系统本身就有不同认知，偏置项用来平衡用户对于打分系统的不同标准（GDSRec）
-
+   
 6. 特征提取：
    1. 简单的聚合效果不好：Attention
 
    2. 聚合到的信息没法代表全局：
       1. 分层网络本身就是一层往外聚合一跳
-      1. 
+      1. 但是多跳会有限制，很容易梯度爆炸。所以可以用Shortcut ，相当于图上的跳跃链接了，在高阶邻居上加边。
 
    3. 如何处理一个用户它自身的时序数据？如何从交互序列（sequence）当中得到可以代表一个用户兴趣的特征？
       1. 最基础的是，用最近的一个兴趣代表用户喜好（**An Efficient and Effective Framework for Session-based Social**
