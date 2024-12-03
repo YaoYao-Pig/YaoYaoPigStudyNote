@@ -41,6 +41,58 @@ unordered_map的复杂度是O(1)，最坏退化到O(N)
 >
 > 因此，**`unordered_map`在查询时在大多数情况下通常快于`map`**，但是`map`的查询复杂度是**稳定的**，无论数据的分布情况如何。
 
+#### rb_tree
+
+红黑树，rb_tree的实例化需要传入几个参数
+
+> Key_Type : Key的类型
+>
+> Data_Type ： Value=Key+Value，
+>
+> Operator： 如何从Data种取出Key
+>
+> Compare：Key的比较规则
+
+两种insert：insert_unique（不支持key重复）和insert_equal（支持重复key）
+
+#### set
+
+迭代器是const_iterator
+
+set对应的是insert_unique，
+
+mutilset对应的是insert_equal
+
+#### map
+
+map内核也是一个rb_tree，它的rb_tree的Data_Type 的类型是pari<const Key,T>，也就说它的key的类型是一个const类型，也因此无法通过迭代器修改map的key
+
+map对应的是insert_unique，可以使用[]访问元素的value或者插入。map如果找不到[]对应的key，那么会创建一个节点key，value是默认值。用[]会先调用lower_bound，如果找不到再insert，所以速度上不如直接insert。
+
+mutilmap对应的是insert_equal，因为key是允许重复的，所以不允许用[]访问元素或者插入
+
+![image-20241125162453594](./assets/image-20241125162453594.png)
+
+#### hashtable
+
+防止hash冲突的方法是链表法
+
+如果元素总量，比bucket的槽的数量多，那就要打散，bucket的槽的capacity就要翻倍（质数翻倍）（每一个已经插入的元素都rehashing，防止单个链表过长）
+
+> bucket_index = hashcode % len_of_buckets
+
+hash\<T>，一种计算hashcode的方式，本质是一个模板struct。标准库已经实现了基本的类型：
+
++ 对于值类型，int，char，long。。。数值本身就被作为hashcode的值
++ 对于c风格字符串，char*,const char\*，有一套运算逻辑把char加起来，但是有个缩放比例。 
++ 没有hash\<string>的默认实现
+
+#### unordered_map ，unordered_multimap 和 unordered_set，unordered_multiset
+
+
+
+
+
 ### 顺序容器
 
 #### List
@@ -142,9 +194,29 @@ vec.push_back(A());
 
 ![image-20241116185335721](./assets/image-20241116185335721.png)
 
+#### deque
 
+deque双向容器，迭代器支持随机访问，但是本质上采用的不是顺序的存储空间，而是分段的存储空间。（表现出来的是连续的存储模式）
 
+deque分为两部分，控制中心（被称为map）和buffers（或叫node）。控制中心是一个vector，二倍扩容。每次扩容之后，是把原来的数据复制到中段
 
+> 比如说，本来map部分8个，现在要加到9个，那么这时候总的容量会扩容到16个，并且会把原来的8个复制到也许是4-12个的位置上
+
+##### insert
+
+deque的insert函数会根据插入的位置的不同而选择不同的处理方式
+
+如果插入的是开头结尾单独处理。
+
+如果在中间插入，那么它会检查插入的点位和开头结尾哪个更近，移动更近的那一端
+
+#### stack和queue
+
+本质上默认就是封装了deque（容器适配器）
+
+也可以手动改写为其他的容器（只要能提供一些接口，比如list；但是queue不可以用vector，stack可以）
+
+不允许遍历也不提供iterator
 
 ## Iterator
 

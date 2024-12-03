@@ -178,3 +178,97 @@ public class Point
 }
 ```
 
+Dictionary也是二倍扩容，但它的这个二倍指的是“质数”的二倍扩容。
+
+在C#当中，Dictionary是基于HashTable的，它处理Hash冲突的方式是通过“拉链法"，注意，其实是用数组实现的链表。
+
+Dictionary维护两个数组：buckets和entries
+
+buckets是这样的一个数组：数组的索引是HashCode，数组存储的值是对应的entries里链表的首索引的位置。
+
+entries是很多个链表（通过数组实现的链表）。enries里面存储着具体的key-value键值对以及next值，指向链表的下一个元素在entries数组里的位置。
+
+```c#
+internal struct Entry
+{
+    public int hashCode;    // 键的哈希值，用于快速查找
+    public int next;        // 链表中下一个 Entry 的索引（-1 表示链尾）
+    public TKey key;        // 键
+    public TValue value;    // 值
+}
+```
+
+### Add
+
+当Add新元素时，Dictionary有三种情况：1. 无冲突，位置充足，2.有冲突位置重组，3.没有位置需要扩容
+
+Dictionary会维护一个索引，指向entries里下一个可以被使用的空间的索引，比如`nextAvailableIndex`
+
+1. 无冲突时，空间充足
+
+这时候，会从entries里面分一个空间出来存储新的key-value。并且把`bucket[hashcode%buckets.Length]`的位置存储上nextAvailableIndex索引。
+
+2. 有冲突
+
+这时候，会把新的key-value实体插入链表的开头，也就是：
+
+```C#
+public void Add(TKey key, TValue value)
+{
+    int hashCode = key.GetHashCode();
+    int bucketIndex = hashCode % buckets.Length;
+
+    // 新的 Entry 放入 entries 数组
+    entries[nextAvailableIndex] = new Entry
+    {
+        hashCode = hashCode,
+        key = key,
+        value = value,
+        next = buckets[bucketIndex] - 1 // 指向链表的当前起点
+    };
+
+    // 更新桶指向新的 Entry
+    buckets[bucketIndex] = nextAvailableIndex + 1;
+    nextAvailableIndex++;
+}
+```
+
+> 1. 在entries[nextAvailableIndex]的位置，分配新的实体的空间
+> 2. 新的实体的next指向现在`bucket[hashcode%buckets.Length]`的实体在entries的位置的索引
+> 3. `bucket[hashcode%buckets.Length]`存储的索引指向新的实体的位置
+
+3. 空间不足：
+
+触发质数的二倍扩容
+
+```c#
+private void Resize(int newSize)
+{
+    // 创建新 buckets 和新 entries 数组
+    int[] newBuckets = new int[newSize];
+    Entry[] newEntries = new Entry[newSize];
+
+    // 复制旧 entries 到新 entries
+    Array.Copy(entries, 0, newEntries, 0, count);
+
+    for (int i = 0; i < count; i++)
+    {
+        if (newEntries[i].hashCode >= 0)
+        {
+            // 重新计算桶的索引
+            int bucketIndex = newEntries[i].hashCode % newSize;
+
+            // 更新链表：设置新的 next 指针
+            newEntries[i].next = newBuckets[bucketIndex] - 1;
+
+            // 更新新的桶指向
+            newBuckets[bucketIndex] = i + 1;
+        }
+    }
+
+    // 替换旧数组
+    buckets = newBuckets;
+    entries = newEntries;
+}
+```
+
