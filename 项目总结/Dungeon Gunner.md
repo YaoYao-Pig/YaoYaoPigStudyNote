@@ -22,7 +22,17 @@
 
 ## 基于上述方法搭建模板后，随机地牢地图生成
 
+基于状态机实现的敌人AI
 
+分为三个类：Trigger\<T>，用于配置转换条件
+
+State\<T>，状态的基类，继承这个基类的要实现具体的转换逻辑
+
+StateMachine\<T>，Update里检测Trigger和State（通过特定的命名规则和配置文件，通过反射构建状态机）
+
+
+
+有一个范围内的巡逻，一定范围内检测到才开始寻路，超出范围丢失继续巡逻。
 
 ## ScriptableObject进行武器，音效，子弹效果配置以及玩家配置、地牢房间配置。
 
@@ -85,6 +95,8 @@ public abstract class SingletonMonbehaviour<T> : MonoBehaviour where T : MonoBeh
 
 ![image-20250119232420310](./assets/image-20250119232420310.png)
 
+# 优化：
+
 ## Object Pooling优化
 
 通用对象池，管理子弹，音效，特效
@@ -125,7 +137,9 @@ PoolManager里维护一个Dic，Key是Prefab的InstanceID，value是一个Queue<
 
 通过对不同Tile类型给与不同的惩罚，让AI优先选择一定的路径
 
+## 仅激活摄像机可视范围内的房间，对于之外的房间则取消激活，降低运算压力。
 
+相机视口和房间包围体求交集
 
 ## PolygonCollider2D
 
