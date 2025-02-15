@@ -232,9 +232,9 @@ public virtual Color color {
 
 ![image-20241218171212848](./assets/image-20241218171212848.png)
 
-而经过查找，这个队列最终在一个叫做PerformUpdate的函数里面被使用：（注意这个函数在游戏刚运行，绘制所有UI的时候也会被调用，它每一帧都会被调用，并且针对每个UI都会Check。如果没有需要更新的东西，每个Canvas的m_LayoutRebuildQueue都会是空的。静态的不变化的UI，就不会再被它重绘了）
+而经过查找，这个队列最终在一个叫做PerformUpdate的函数里面被使用：（注意这个函数在游戏刚运行，绘制所有UI的时候也会被调用，它每一帧都会被调用，并且针对每个UI都会Check。如果没有需要更新的东西，每个Canvas的m_GraphicRebuildQueue都会是空的。静态的不变化的UI，就不会再被它重绘了）
 
-（假设好几个Canvas，他们上的UI都会被放在同一个全局的m_LayoutRebuildQueue。CanvasUpdate.PostLayout;这些代表的是渲染阶段）
+（假设好几个Canvas，他们上的UI都会被放在同一个全局的m_GraphicRebuildQueue。CanvasUpdate.PostLayout;这些代表的是渲染阶段）
 
 ```c#
 public enum CanvasUpdate
@@ -1064,3 +1064,445 @@ void Update(){
 然后这个检测的过程也值得分析一下，（实际上是Canvas下的Graphic Raycaster这个组件做的检测）实际上我猜测这并不是用了射线检测，而是用的UI的Rec框框直接去比对Mouse的Position，计算是否有交集，包括一些反转检测的操作
 
 ![image-20241219204935597](./assets/image-20241219204935597.png)
+
+## Layout
+
+### Content Size Fitter
+
+我们知道ContentSizeFitter需要和LayoutGroup配合使用，这是为什么呢？
+
+我们要从它的调用流程来看：
+
+我们知道PerforUpdate会每帧被事件触发
+
+而渲染流程当中，会首先计算Layout（布局），然后计算渲染相关的内容。
+
+```c#
+private void PerformUpdate()
+        {
+            UISystemProfilerApi.BeginSample(UISystemProfilerApi.SampleType.Layout);
+            CleanInvalidItems();
+
+            m_PerformingLayoutUpdate = true;
+
+            m_LayoutRebuildQueue.Sort(s_SortLayoutFunction);
+
+            for (int i = 0; i <= (int)CanvasUpdate.PostLayout; i++)
+            {
+                UnityEngine.Profiling.Profiler.BeginSample(m_CanvasUpdateProfilerStrings[i]);
+
+                for (int j = 0; j < m_LayoutRebuildQueue.Count; j++)
+                {
+                    var rebuild = m_LayoutRebuildQueue[j];
+                    try
+                    {
+                        if (ObjectValidForUpdate(rebuild))
+                            rebuild.Rebuild((CanvasUpdate)i); <===看这里
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogException(e, rebuild.transform);
+                    }
+                }
+                UnityEngine.Profiling.Profiler.EndSample();
+            }
+
+            for (int i = 0; i < m_LayoutRebuildQueue.Count; ++i)
+                m_LayoutRebuildQueue[i].LayoutComplete();
+
+            m_LayoutRebuildQueue.Clear();
+            m_PerformingLayoutUpdate = false;
+            UISystemProfilerApi.EndSample(UISystemProfilerApi.SampleType.Layout);
+            UISystemProfilerApi.BeginSample(UISystemProfilerApi.SampleType.Render);
+
+            // now layout is complete do culling...
+            UnityEngine.Profiling.Profiler.BeginSample(m_CullingUpdateProfilerString);
+            ClipperRegistry.instance.Cull();
+            UnityEngine.Profiling.Profiler.EndSample();
+
+            m_PerformingGraphicUpdate = true;
+
+            for (var i = (int)CanvasUpdate.PreRender; i < (int)CanvasUpdate.MaxUpdateValue; i++)
+            {
+                UnityEngine.Profiling.Profiler.BeginSample(m_CanvasUpdateProfilerStrings[i]);
+                for (var k = 0; k < m_GraphicRebuildQueue.Count; k++)
+                {
+                    try
+                    {
+                        var element = m_GraphicRebuildQueue[k];
+                        if (ObjectValidForUpdate(element))
+                            element.Rebuild((CanvasUpdate)i);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogException(e, m_GraphicRebuildQueue[k].transform);
+                    }
+                }
+                UnityEngine.Profiling.Profiler.EndSample();
+            }
+
+            for (int i = 0; i < m_GraphicRebuildQueue.Count; ++i)
+                m_GraphicRebuildQueue[i].GraphicUpdateComplete();
+
+            m_GraphicRebuildQueue.Clear();
+            m_PerformingGraphicUpdate = false;
+            UISystemProfilerApi.EndSample(UISystemProfilerApi.SampleType.Render);
+        }
+
+```
+
+`Rebuild`函数，是一个虚函数，对于Layout而言，Rebuild函数会有以下的重载：
+
+```c#
+public class LayoutRebuilder : ICanvasElement{
+	    public void Rebuild(CanvasUpdate executing)
+        {
+            switch (executing)
+            {
+                case CanvasUpdate.Layout:  
+                    // It's unfortunate that we'll perform the same GetComponents querys for the tree 2 times,
+                    // but each tree have to be fully iterated before going to the next action,
+                    // so reusing the results would entail storing results in a Dictionary or similar,
+                    // which is probably a bigger overhead than performing GetComponents multiple times.
+                    //先计算大小，再设置大小
+                    PerformLayoutCalculation(m_ToRebuild, e => (e as ILayoutElement).CalculateLayoutInputHorizontal()); 
+                    PerformLayoutControl(m_ToRebuild, e => (e as ILayoutController).SetLayoutHorizontal());
+                 
+                    PerformLayoutCalculation(m_ToRebuild, e => (e as ILayoutElement).CalculateLayoutInputVertical());
+                    PerformLayoutControl(m_ToRebuild, e => (e as ILayoutController).SetLayoutVertical());
+                    break;
+            }
+        }
+}
+```
+
+可以看到，在LayoutRebuilder当中，Rebuild被重载了，当进行到:CanvasUpdate.Layout阶段的时候，函数会被真正的处理
+
+在PerformLayoutCalculation会真正的处理Layout的计算逻辑
+
+```c#
+///递归函数：
+        ///首先是递归一直往子节点往下
+        ///然后，再调用action（CalculateLayoutInputHorizontal）重新计算一些size，比如minSize，PreferedSize之类的
+        ///CalculateLayoutInputHorizontal每一次，都会首先根据当前节点获取所有的子节点，然后根据子节点计算大小。
+        private void PerformLayoutCalculation(RectTransform rect, UnityAction<Component> action)
+        {
+            if (rect == null)
+                return;
+            var components = ListPool<Component>.Get();
+            rect.GetComponents(typeof(ILayoutElement), components);
+            StripDisabledBehavioursFromList(components);
+
+            // If there are no controllers on this rect we can skip this entire sub-tree
+            // We don't need to consider controllers on children deeper in the sub-tree either,
+            // since they will be their own roots.
+            if (components.Count > 0  || rect.GetComponent(typeof(ILayoutGroup)))
+            {
+                // Layout calculations needs to executed bottom up with children being done before their parents,
+                // because the parent calculated sizes rely on the sizes of the children.
+                //递归计算
+                for (int i = 0; i < rect.childCount; i++)
+                    PerformLayoutCalculation(rect.GetChild(i) as RectTransform, action);
+
+                for (int i = 0; i < components.Count; i++)
+                    action(components[i]);
+            }
+            ListPool<Component>.Release(components);
+        }
+
+```
+
+action是一个回调函数：CalculateLayoutInputHorizontal
+
+CalculateLayoutInputHorizontal会根据一个Component的子节点，重新计算其自身的大小
+
+```c#
+public class  HorizontalOrVerticalLayoutGroup
+  {
+		public virtual void CalculateLayoutInputHorizontal(){
+            m_RectChildren.Clear();
+            var toIgnoreList = ListPool<Component>.Get();
+            for (int i = 0; i < rectTransform.childCount; i++)
+            {
+                var rect = rectTransform.GetChild(i) as RectTransform;
+                if (rect == null || !rect.gameObject.activeInHierarchy)
+                    continue;
+
+                rect.GetComponents(typeof(ILayoutIgnorer), toIgnoreList);
+
+                if (toIgnoreList.Count == 0)
+                {
+                    m_RectChildren.Add(rect);
+                    continue;
+                }
+			//获取子节点
+                for (int j = 0; j < toIgnoreList.Count; j++)
+                {
+                    var ignorer = (ILayoutIgnorer)toIgnoreList[j];
+                    if (!ignorer.ignoreLayout)
+                    {
+                        m_RectChildren.Add(rect);
+                        break;
+                    }
+                }
+            }
+            ListPool<Component>.Release(toIgnoreList);
+            m_Tracker.Clear();
+        } 
+}
+
+public class VerticalLayoutGroup : HorizontalOrVerticalLayoutGroup
+    {
+
+        /// <summary>
+        /// Called by the layout system. Also see ILayoutElement
+        /// </summary>
+        public override void CalculateLayoutInputHorizontal()
+        {
+            base.CalculateLayoutInputHorizontal();
+            CalcAlongAxis(0, true);
+        }
+    }
+```
+
+CalcAlongAxis执行计算
+
+```c#
+
+//HorizontalOrVerticalLayoutGroup.cs
+protected void CalcAlongAxis(int axis, bool isVertical)
+        {
+            float combinedPadding = (axis == 0 ? padding.horizontal : padding.vertical);
+            bool controlSize = (axis == 0 ? m_ChildControlWidth : m_ChildControlHeight);
+            bool useScale = (axis == 0 ? m_ChildScaleWidth : m_ChildScaleHeight);
+            bool childForceExpandSize = (axis == 0 ? m_ChildForceExpandWidth : m_ChildForceExpandHeight);
+
+            float totalMin = combinedPadding;
+            float totalPreferred = combinedPadding;
+            float totalFlexible = 0;
+
+            bool alongOtherAxis = (isVertical ^ (axis == 1));
+            var rectChildrenCount = rectChildren.Count;
+            for (int i = 0; i < rectChildrenCount; i++)
+            {
+                RectTransform child = rectChildren[i];
+                float min, preferred, flexible;
+                GetChildSizes(child, axis, controlSize, childForceExpandSize, out min, out preferred, out flexible);
+
+                if (useScale)
+                {
+                    float scaleFactor = child.localScale[axis];
+                    min *= scaleFactor;
+                    preferred *= scaleFactor;
+                    flexible *= scaleFactor;
+                }
+
+                if (alongOtherAxis)
+                {
+                    totalMin = Mathf.Max(min + combinedPadding, totalMin);
+                    totalPreferred = Mathf.Max(preferred + combinedPadding, totalPreferred);
+                    totalFlexible = Mathf.Max(flexible, totalFlexible);
+                }
+                else
+                {
+                    totalMin += min + spacing;
+                    totalPreferred += preferred + spacing;
+
+                    // Increment flexible size with element's flexible size.
+                    totalFlexible += flexible;
+                }
+            }
+
+            if (!alongOtherAxis && rectChildren.Count > 0)
+            {
+                totalMin -= spacing;
+                totalPreferred -= spacing;
+            }
+            totalPreferred = Mathf.Max(totalMin, totalPreferred);
+            SetLayoutInputForAxis(totalMin, totalPreferred, totalFlexible, axis);
+        }
+```
+
+所以总结一下流程：
+
+PerformUpdate执行到Layout更新的流程时，会调用对应的Perform函数。而对应的Perform函数会递归的根据每个节点的子节点大小计算重新计算其大小（自底向上）
+
+我们注意到，回调函数需要传入一个ILayoutElement。而xxxLayoutGroup都继承自ILayoutElement这个接口。因此我们可以知道，重新计算大小，需要的是LayoutGroup的参与。并且LayoutGroup是不会真正改变挂载对象的大小的。
+
+为什么不回改变大小呢？我们回到这段代码：
+
+```c#
+
+        public void Rebuild(CanvasUpdate executing)
+        {
+            switch (executing)
+            {
+                case CanvasUpdate.Layout:
+                    // It's unfortunate that we'll perform the same GetComponents querys for the tree 2 times,
+                    // but each tree have to be fully iterated before going to the next action,
+                    // so reusing the results would entail storing results in a Dictionary or similar,
+                    // which is probably a bigger overhead than performing GetComponents multiple times.
+                    //先计算大小，再设置大小
+                    PerformLayoutCalculation(m_ToRebuild, e => (e as ILayoutElement).CalculateLayoutInputHorizontal()); 
+                    PerformLayoutControl(m_ToRebuild, e => (e as ILayoutController).SetLayoutHorizontal());
+                 
+                    PerformLayoutCalculation(m_ToRebuild, e => (e as ILayoutElement).CalculateLayoutInputVertical());
+                    PerformLayoutControl(m_ToRebuild, e => (e as ILayoutController).SetLayoutVertical());
+                    break;
+            }
+        }
+```
+
+我们可以看到，实际上，对于横纵来说，都是先计算大小，再设置大小。计算大小通过ILayoutElement元素也就是各种LayoutGroup。而设置过程则是依靠了ILayoutController。而ContentSizeFiller则是继承自PerformLayoutControl
+
+```c#
+//ContentSizeFiller.cs
+        private void HandleSelfFittingAlongAxis(int axis)
+        {
+            FitMode fitting = (axis == 0 ? horizontalFit : verticalFit);
+            if (fitting == FitMode.Unconstrained)
+            {
+                // Keep a reference to the tracked transform, but don't control its properties:
+                m_Tracker.Add(this, rectTransform, DrivenTransformProperties.None);
+                return;
+            }
+
+            m_Tracker.Add(this, rectTransform, (axis == 0 ? DrivenTransformProperties.SizeDeltaX : DrivenTransformProperties.SizeDeltaY));
+
+            // Set size to min or preferred size
+            if (fitting == FitMode.MinSize)
+                rectTransform.SetSizeWithCurrentAnchors((RectTransform.Axis)axis, LayoutUtility.GetMinSize(m_Rect, axis));
+            else
+                rectTransform.SetSizeWithCurrentAnchors((RectTransform.Axis)axis, LayoutUtility.GetPreferredSize(m_Rect, axis));
+        }
+
+        /// <summary>
+        /// Calculate and apply the horizontal component of the size to the RectTransform
+        /// </summary>
+        public virtual void SetLayoutHorizontal()
+        {
+            m_Tracker.Clear();
+            HandleSelfFittingAlongAxis(0);
+        }
+```
+
+这里有个问题，LayoutGroup是如何影响子节点位置的
+
+答案是，LayoutGroup也继承了ILayoutController，因此在设置的时候也会调用LayoutGroup的方法。
+
+那是如何设置的呢？
+
+
+
+LayoutGroup的Set函数，本质上是设置了子节点的位置：
+
+```c#
+//VerticalLayoutGroup 
+public override void SetLayoutHorizontal()
+    {
+        SetChildrenAlongAxis(0, true);
+    }
+```
+
+
+
+```c#
+
+//HorizontalOrVerticalLayoutGroup.cs
+protected void SetChildrenAlongAxis(int axis, bool isVertical)
+        {
+            float size = rectTransform.rect.size[axis];
+            bool controlSize = (axis == 0 ? m_ChildControlWidth : m_ChildControlHeight);
+            bool useScale = (axis == 0 ? m_ChildScaleWidth : m_ChildScaleHeight);
+            bool childForceExpandSize = (axis == 0 ? m_ChildForceExpandWidth : m_ChildForceExpandHeight);
+            float alignmentOnAxis = GetAlignmentOnAxis(axis);
+
+            bool alongOtherAxis = (isVertical ^ (axis == 1));
+            int startIndex = m_ReverseArrangement ? rectChildren.Count - 1 : 0;
+            int endIndex = m_ReverseArrangement ? 0 : rectChildren.Count;
+            int increment = m_ReverseArrangement ? -1 : 1;
+            if (alongOtherAxis)
+            {
+                float innerSize = size - (axis == 0 ? padding.horizontal : padding.vertical);
+
+                for (int i = startIndex; m_ReverseArrangement ? i >= endIndex : i < endIndex; i += increment)
+                {
+                    RectTransform child = rectChildren[i];
+                    float min, preferred, flexible;
+                    GetChildSizes(child, axis, controlSize, childForceExpandSize, out min, out preferred, out flexible);
+                    float scaleFactor = useScale ? child.localScale[axis] : 1f;
+
+                    float requiredSpace = Mathf.Clamp(innerSize, min, flexible > 0 ? size : preferred);
+                    float startOffset = GetStartOffset(axis, requiredSpace * scaleFactor);
+                    if (controlSize)
+                    {
+                        SetChildAlongAxisWithScale(child, axis, startOffset, requiredSpace, scaleFactor);
+                    }
+                    else
+                    {
+                        float offsetInCell = (requiredSpace - child.sizeDelta[axis]) * alignmentOnAxis;
+                        SetChildAlongAxisWithScale(child, axis, startOffset + offsetInCell, scaleFactor);
+                    }
+                }
+            }
+            else
+            {
+                float pos = (axis == 0 ? padding.left : padding.top);
+                float itemFlexibleMultiplier = 0;
+                float surplusSpace = size - GetTotalPreferredSize(axis);
+
+                if (surplusSpace > 0)
+                {
+                    if (GetTotalFlexibleSize(axis) == 0)
+                        pos = GetStartOffset(axis, GetTotalPreferredSize(axis) - (axis == 0 ? padding.horizontal : padding.vertical));
+                    else if (GetTotalFlexibleSize(axis) > 0)
+                        itemFlexibleMultiplier = surplusSpace / GetTotalFlexibleSize(axis);
+                }
+
+                float minMaxLerp = 0;
+                if (GetTotalMinSize(axis) != GetTotalPreferredSize(axis))
+                    minMaxLerp = Mathf.Clamp01((size - GetTotalMinSize(axis)) / (GetTotalPreferredSize(axis) - GetTotalMinSize(axis)));
+
+                for (int i = startIndex; m_ReverseArrangement ? i >= endIndex : i < endIndex; i += increment)
+                {
+                    RectTransform child = rectChildren[i];
+                    float min, preferred, flexible;
+                    GetChildSizes(child, axis, controlSize, childForceExpandSize, out min, out preferred, out flexible);
+                    float scaleFactor = useScale ? child.localScale[axis] : 1f;
+
+                    float childSize = Mathf.Lerp(min, preferred, minMaxLerp);
+                    childSize += flexible * itemFlexibleMultiplier;
+                    if (controlSize)
+                    {
+                        SetChildAlongAxisWithScale(child, axis, pos, childSize, scaleFactor);
+                    }
+                    else
+                    {
+                        float offsetInCell = (childSize - child.sizeDelta[axis]) * alignmentOnAxis;
+                        SetChildAlongAxisWithScale(child, axis, pos + offsetInCell, scaleFactor);
+                    }
+                    pos += childSize * scaleFactor + spacing;
+                }
+            }
+        }
+
+```
+
+
+
+这三个参数也就可以理解了
+
+![image-20250210223147318](./assets/image-20250210223147318.png)
+
+
+
+
+
+思考：CanvasUpdate是个很妙的设计。我们可以想到，对于同一个Object。如果它同时是Image又挂载了LayoutGroup和ContentSizeFitter
+
+那么，在Layout阶段，他会Perform处理Layout和Content相关的内容（存放在m_LayoutRebuildQueue）当中进行更新处理（而这俩同时出现在一个Object上，好像是会覆盖的，也就是m_LayoutRebuildQueue只会出现一个，但是不知道为什么效果是对的）
+
+而在渲染阶段，会处理在m_GraphicRebuildQueue里的Componet（比如Image）。
+
+所以，这个更新是以Component为基本单位来做的。
+

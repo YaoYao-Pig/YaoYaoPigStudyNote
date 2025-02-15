@@ -373,3 +373,9 @@ public class RectMaskExample : MonoBehaviour {
 ------
 
 希望这个解析能帮助你理解 **`Mask` 和 `RectMask2D` 的底层实现及其区别！** 🎯 如果你有具体的使用场景需要优化，欢迎讨论！🚀
+
+# 协程
+
+https://zhuanlan.zhihu.com/p/35195150
+
+https://blog.csdn.net/NRatel/article/details/102870744
