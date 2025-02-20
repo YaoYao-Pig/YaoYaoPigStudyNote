@@ -1,8 +1,12 @@
 # UGUI阅读笔记
 
+https://zhuanlan.zhihu.com/p/3445975684
+
+https://zhuanlan.zhihu.com/p/2583367098
+
 ## UGUI架构
 
-绘制，事件系统，射线检测
+绘制，事件系统，射线检测，合批
 
 
 
@@ -1394,7 +1398,7 @@ PerformUpdate执行到Layout更新的流程时，会调用对应的Perform函数
 
 
 
-LayoutGroup的Set函数，本质上是设置了子节点的位置：
+LayoutGroup对应的ILayoutController的Set函数，本质上是设置了子节点的位置：
 
 ```c#
 //VerticalLayoutGroup 
@@ -1506,3 +1510,24 @@ protected void SetChildrenAlongAxis(int axis, bool isVertical)
 
 所以，这个更新是以Component为基本单位来做的。
 
+## UGUI合批处理
+
+1. 按照Canvas为单位合批
+
+   ![image-20250219195626467](./assets/image-20250219195626467.png)
+
+2. 材质相同的合批
+
+   ![image-20250219195555422](./assets/image-20250219195555422.png)
+
+3. 贴图Texture：
+
+   1. 如果两个Image用一个Sprite且材质一样（仅仅颜色不同材质也是一样的）也是一个批次
+
+      ![image-20250219200600494](./assets/image-20250219200600494.png)
+
+4. 合批首先是基于同材质，再结合深度信息。同一批次的元素会合并到一个网格，绘制时只执行一次drawcall
+
+5. 图集在一个合批
+
+6. 实际合批时处理规则会更复杂，比如不同deeps但材质相同的元素，可能会被合批

@@ -20,3 +20,9 @@ int main() {
 
 
  C++中如何实现一个简单的状态模式？
+
+
+
+C++异常处理
+
+https://zhuanlan.zhihu.com/p/656940263

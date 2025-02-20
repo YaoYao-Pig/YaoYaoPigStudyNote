@@ -1,6 +1,8 @@
 # Lua
 
+## Lua和C通信
 
+通过栈
 
 ## Lua闭包：
 
@@ -334,6 +336,16 @@ print(closure())  -- 输出 30
 https://zhuanlan.zhihu.com/p/29317103
 
 https://zhuanlan.zhihu.com/p/630888382
+
+[用好Lua+Unity，让性能飞起来——Lua与C#交互篇 (qq.com)](https://mp.weixin.qq.com/s?__biz=MzI3MzA2MzE5Nw==&mid=2668904614&idx=1&sn=cbf0647bd5458051e20354bb2ed1042f&chksm=f1c9ecd4c6be65c2c7fe2f30e078090a20b67d0c5ab380dc1c7145a4c7da4d1a50fd08fad788&scene=21#wechat_redirect)
+
+### 纯Lua
+
+
+
+### LuaC#交互
+
+少用C#独有的类，改成一些基础变量
 
 ## XLua
 

@@ -12,91 +12,13 @@ ChatGPT
 
 ## **1. UGUI Mask 和 Mask2D 的区别**
 
-**UGUI Mask** 和 **Mask2D** 都是用来实现**遮罩**效果的组件，但它们的实现方式和使用场景有些不同。
+Mask基于模板测试
 
-### **UGUI Mask**
+RectMask2D基于矩形裁切
 
-- **实现原理**：
-  使用 **剪裁（Clipping）** 的方式，只显示子对象在父对象（带 Mask 组件）的 **RectTransform 边界** 内的部分。
-  具体来说，它基于 **UI 画布系统（Canvas）**，通过调整 UI 顶点数据，实现简单的裁剪。
+Mask要多一个Drawcall用来往模板缓冲区写入数据
 
-- **使用场景**：
-  适用于 **UI 元素** 的遮罩，比如滚动列表、图片裁剪等。
-
-- **特点**：
-
-  - **不支持复杂形状**（只支持矩形裁剪）。
-  - **效率高**，适合简单裁剪。
-  - **不支持渐变过渡**，遮罩效果很“硬”。
-
-- **示例**：
-
-  ```
-  csharp复制编辑// 添加 Mask 组件
-  GameObject maskObject = new GameObject("Mask");
-  maskObject.AddComponent<Mask>();
-  maskObject.AddComponent<Image>();
-  ```
-
-### **Mask2D**
-
-- **实现原理**：
-  一般通过 **Shader** 实现，支持 **Alpha 通道** 进行裁剪。
-  在 Unity 标准库里其实没有 Mask2D 这个专门组件，它更像是自定义 Shader 实现的效果。
-
-- **使用场景**：
-  适合 **复杂遮罩**，比如需要渐变过渡、圆形遮罩、任意形状遮罩等。
-
-- **特点**：
-
-  - **支持复杂形状**，甚至渐变透明度。
-  - **可能需要编写 Shader**，复杂性增加。
-  - **性能可能较差**，因为需要额外的渲染计算。
-
-- **示例**（简化版 Shader）：
-
-  ```
-  glsl复制编辑Shader "Custom/AlphaMask" {
-      Properties {
-          _MainTex ("Texture", 2D) = "white" {}
-          _MaskTex ("Mask Texture", 2D) = "white" {}
-      }
-      SubShader {
-          Pass {
-              CGPROGRAM
-              #pragma vertex vert
-              #pragma fragment frag
-  
-              sampler2D _MainTex;
-              sampler2D _MaskTex;
-  
-              struct v2f {
-                  float4 pos : SV_POSITION;
-                  float2 uv : TEXCOORD0;
-              };
-  
-              v2f vert (appdata_t v) {
-                  v2f o;
-                  o.pos = UnityObjectToClipPos(v.vertex);
-                  o.uv = v.texcoord;
-                  return o;
-              }
-  
-              fixed4 frag (v2f i) : SV_Target {
-                  fixed4 color = tex2D(_MainTex, i.uv);
-                  fixed4 mask = tex2D(_MaskTex, i.uv);
-                  color.a *= mask.a; // 通过 Mask 控制透明度
-                  return color;
-              }
-              ENDCG
-          }
-      }
-  }
-  ```
-
-  这个 Shader 使用了 **Alpha 通道** 来控制遮罩效果。
-
-------
+https://blog.csdn.net/qq_58047420/article/details/139908956?spm=1001.2101.3001.6650.3&utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7EBlogCommendFromBaidu%7ERate-3-139908956-blog-131171958.235%5Ev43%5Epc_blog_bottom_relevance_base6&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7EBlogCommendFromBaidu%7ERate-3-139908956-blog-131171958.235%5Ev43%5Epc_blog_bottom_relevance_base6&utm_relevant_index=6
 
 ## **2. Image 和 RawImage 的区别**
 
@@ -379,3 +301,15 @@ public class RectMaskExample : MonoBehaviour {
 https://zhuanlan.zhihu.com/p/35195150
 
 https://blog.csdn.net/NRatel/article/details/102870744
+
+## Unity渲染顺序
+
+https://zhuanlan.zhihu.com/p/628625904
+
+https://zhuanlan.zhihu.com/p/406262140
+
+## Unity合批
+
+https://zhuanlan.zhihu.com/p/697699342
+
+https://zhuanlan.zhihu.com/p/432223843
