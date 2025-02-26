@@ -1531,3 +1531,34 @@ protected void SetChildrenAlongAxis(int axis, bool isVertical)
 5. 图集在一个合批
 
 6. 实际合批时处理规则会更复杂，比如不同deeps但材质相同的元素，可能会被合批
+
+https://blog.csdn.net/sinat_25415095/article/details/112388638
+
+https://mp.weixin.qq.com/s?__biz=MzU1ODY1ODY2NA==&mid=2247486153&idx=1&sn=66282b6c8d9121ddcae4ef51534815cc&chksm=fc226fcecb55e6d80e607556db8e44fb7347f2a89cd85f6b51cc4bfce096e1bc9ec23ad2581f&cur_album_id=2024185966827012100&scene=189#wechat_redirect
+
+合批过程：
+
+首先要明白什么是depth。
+
+depth是UI元素定义的一个用于合批计算的参数吧，可以简单的理解为“覆盖率”
+
+depth的计算是把元素放在一个Grid里，每个Grid的每个格子存储了所被覆盖的元素，这样查找的时候就直接查格子就可以了。
+
+depth计算规则如下：
+
+![image-20250225164358485](./assets/image-20250225164358485.png)
+
+![image-20250225164411504](./assets/image-20250225164411504.png)
+
+合批会先对UI元素进行排序。按照：
+
+
+
+![image-20250225165727773](./assets/image-20250225165727773.png)
+
+排序是为了加速合批时的查找速度。
+
+排序完之后，进行合批的分组，按顺序遍历UI元素队列，如果一个元素和前一个元素可以合批，那么就加入当前的合批队列，如果断批了，那就新开一个合批队列。合批条件如下：
+
+![图片](./assets/640.webp)
+
