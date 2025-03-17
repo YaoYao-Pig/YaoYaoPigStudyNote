@@ -6,6 +6,18 @@ https://www.cnblogs.com/iwiniwin/p/15307368.html
 
 https://www.bilibili.com/video/BV15N411S755/?spm_id_from=333.337.search-card.all.click&vd_source=5d4070cc138983fa1babce80b5a31622
 
+https://zhuanlan.zhihu.com/p/571902078
+
+https://blog.csdn.net/weixin_45218342/article/details/135899213
+
+## Lua弱引用
+
+https://cloud.tencent.com/developer/article/2317271
+
+https://zhuanlan.zhihu.com/p/638008523
+
+https://zhuanlan.zhihu.com/p/97322052
+
 ## Lua访问C#代码
 
 Lua和C#通过一些API进行通信。对于基础数据类型，可以直接通过API通信。而对于那些C#自定义的类，C#会先把对象放进一个对象池，然后获得其对应的index。然后把index传递到Lua栈上，作为一个userdata。

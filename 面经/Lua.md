@@ -339,6 +339,46 @@ https://zhuanlan.zhihu.com/p/630888382
 
 [用好Lua+Unity，让性能飞起来——Lua与C#交互篇 (qq.com)](https://mp.weixin.qq.com/s?__biz=MzI3MzA2MzE5Nw==&mid=2668904614&idx=1&sn=cbf0647bd5458051e20354bb2ed1042f&chksm=f1c9ecd4c6be65c2c7fe2f30e078090a20b67d0c5ab380dc1c7145a4c7da4d1a50fd08fad788&scene=21#wechat_redirect)
 
+### 性能
+
+1. 缓存
+
+   1. 缓存C#那边的访问，避免反复的压入栈中的查找
+
+   2. 缓存元表里的元素，避免反复的查元表
+
+   3. 缓存一些lua的global的表，避免反复从G表中查找，比如
+
+      ```lua
+      local ipair=ipair
+      ```
+
+2. 用简单的数据结构代替复杂的数据结构
+
+   ![image-20250317215313814](./assets/image-20250317215313814.png)
+
+3. 用数组访问代替hashtable
+
+```lua
+--数组访问
+t=1
+store[t]=12.5
+--hashtable访问
+store.t=12.5 --等价于store["t"]=12.5
+```
+
+3. 构建一个共享的空间，让C#以unsafe的方式和lua用指针的方式直接控制，绕过虚拟栈的通信机制
+
+4. 优先使用static函数导出，减少使用成员方法导出
+
+   ![image-20250317215425177](./assets/image-20250317215425177.png)
+
+### 内存
+
+1. 使用弱引用防止Lua持有的C#对象引用造成的C#对象无法释放
+
+   在ObjectTranslator当中，对象池使用的就是弱引用（不影响GC）
+
 ### 纯Lua
 
 
