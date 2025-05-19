@@ -46,8 +46,8 @@ csharp复制编辑public async Task DoSomethingAsync()
 
 在多线程环境下，创建和启动多个线程：
 
-```
-csharp复制编辑public void StartThreads()
+```c#
+public void StartThreads()
 {
     Thread thread1 = new Thread(() => DoWork("Thread 1"));
     Thread thread2 = new Thread(() => DoWork("Thread 2"));
