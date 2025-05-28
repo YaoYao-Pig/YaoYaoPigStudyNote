@@ -1,3 +1,11 @@
+# Unity合批
+
+https://gwb.tencent.com/community/detail/113040
+
+https://gwb.tencent.com/community/detail/114323
+
+
+
 Unity的合批优化我可不可以结合DX12这样说： 首先，合批就意味着渲染状态相同，也就是DX12当中的PSO一样，Shader一样意味着根签名之类的也是一样的，这样的话，渲染合批的这些几何图形，就不需要切换DX12的pipline state状态机，减少性能开销 其次，合批会把一些节点合并在一起，这样的话，就可以一次性提交了，减少IA阶段的提交开销
 
 
