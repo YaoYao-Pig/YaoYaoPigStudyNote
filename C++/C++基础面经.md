@@ -111,7 +111,15 @@ int main(){
 
 # 智能指针
 
-Shared_ptr的线程安全：
+## Unique_ptr：
+
+Unique_ptr实现对于指针资源的独占，实现是通过delete它的拷贝构造函数和拷贝赋值运算符来实现的（但是注意，允许移动构造和移动赋值）
+
+
+
+## Shared_ptr
+
+### 1. 线程安全：
 
 一句话总结：shared_ptr里，对于控制块内部的引用计数器的增减是线程安全的，但是shared_ptr（作为一种类）本身，不是线程安全的。展开说，就是在多线程条件下，shared_ptr的传递是值传递的，那么它的多线程读写是线程安全的，但是如果是引用传递或者是指针传递，那么是线程不安全的。
 
@@ -157,3 +165,61 @@ void f1(shared_ptr<T>& a){
 如果我们使用的是拷贝的，那么很显然，会首先增加两次引用计数（因为是值传递）。并且也只会有一个线程去操作一个独立的对象。
 
 ![e40dae5d325869379fef92e3a715fb9](./assets/e40dae5d325869379fef92e3a715fb9.jpg)
+
+### 2. make_shared
+
+为什么尽量使用make_shared有两个目的：
+
+1. 性能优势
+
+因为`std::shared_ptr<T>(new T(args...))` 这种方式创建 `std::shared_ptr` 时，实际上会发生两次内存分配：
+
+> 第一次是分配了T(new T)
+>
+> 第二次是创建了`std::shared_ptr` 的控制块
+
+但是如果使用make_shared只需要一次内存分配，它会一次性地分配一块足够大的内存，同时容纳 `T` 对象和 `shared_ptr` 的控制块（其实是使用了placement_new)
+
+![image-20250530234610576](assets/image-20250530234610576.png)
+
+并且这也**提高了缓存局部性 (Cache Locality)**：由于对象和其管理数据（控制块）在内存中是相邻的，当访问对象时，其控制块（例如更新引用计数时）很可能已经在CPU缓存中。这减少了从主内存读取数据的次数，从而提高了访问速度。
+
+2. 异常安全
+
+考虑以下：
+
+```c++
+void some_function(std::shared_ptr<Widget> spw, int priority)
+{
+    //...
+}
+int main(){
+    some_function(std::shared_ptr<Widget>(new Widget()), compute_priority());
+}
+```
+
+编译器可能会按照以下顺序执行：
+
+1. 执行 `new Widget()`：分配内存并构造 `Widget` 对象。假设这里成功了，我们得到一个裸指针 `Widget* raw_ptr`。
+2. 执行 `compute_priority()`：这个函数可能会抛出异常。
+3. 执行 `std::shared_ptr<Widget>(raw_ptr)` 的构造：如果 `compute_priority()` 抛出异常，这一步将永远不会执行。
+
+如果在第一步 `new Widget()` 执行成功后，第二步 `compute_priority()` 抛出了异常，那么 `std::shared_ptr` 的构造函数将不会被调用。这意味着，第一步分配的 `Widget` 对象的内存将会**泄漏**，因为没有任何 `shared_ptr` 来管理它
+
+而如果这样：
+
+```c++
+some_function(std::make_shared<Widget>(), compute_priority());
+```
+
+因为make_shared会一次性分配尽可能大的一块内存来同时满足控制块和数据的内存。因此他有能力处理分配和构造中可能会出现的异常（都是相对原子的）
+
+make_shared是线程安全的
+
+> 原因：
+>
+> 1. make_shared每次都会一次性分配内存，而内存分配，C++是保证线程安全的，
+>
+> 2. 并且创造出的内存块彼此之间都是独立的，所以不同线程操纵的实际上是不同的make-shared的创建的内存块（操作的独立性）
+>
+>    
