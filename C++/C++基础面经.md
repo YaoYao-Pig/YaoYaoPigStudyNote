@@ -389,3 +389,300 @@ STL有一个__stl_threshold，快排的时候划分划分到这个threshold就�
 然后接下来，使用插入排序，插入排序对于第一小部分（也就是first - > first+threshold)这部分，使用基本的插入排序。然后对于第一小部分之后的部分，因为已经保证了最小值一定在区间之前，因此可以使用没有边界检测的插入排序，这样更快。
 
 对于特别小的序列，使用插入排序优化，对于递归特别深的部分，直接使用堆排序方式最坏情况
+
+## vector
+
+vector如何释放内存？
+
+就算是vector.clear也没法释放内存，而且vector扩容是只增不减
+
+https://www.cnblogs.com/summerRQ/articles/2407974.html
+
+可以用vector\<int\>().swap(vec)来让vec离开自身作用域，然后释放。或者是vec = {}
+
+## rb_tree
+
+1. map和multimap的区别？
+
+>  multimap 保存多个多个相同的key，而map不可以。multimap不支持下标运算。
+
+原因是都是rb_tree，map使用的插入元素的时候用的是insert_unique，而unordered_map用的是insert_equal
+
+## allocator
+
+> ```cpp
+> // 配置空间，足以存储n个T对象
+> pointer allocator::allocate(size_type n, const void* = 0)
+> // 释放空间
+> void allocator::deallocate(pointer p, size_type n)
+> // 调用对象的构造函数，等同于 new((void*)p) T(x) 
+> // new((void*)p) T(x) 为placement new，即在指定内存空间下构造函数
+> void allocator::construct(pointer p, const T& x)
+> // 调用对象的析构函数，等同于 p->~T()
+> void allocator::destroy(pointer p)
+> ```
+
+allocator是给::new封装了一层，这样默认用new，但是也可以通过重载new来使用新版本。然后再调用构造函数负责构造
+
+析构的时候用deallocate()，方法也一样，先析构，再delete()
+
+## STL的两级分配器
+
+
+
+https://blog.csdn.net/qq_44824574/article/details/124001624
+
+https://zhuanlan.zhihu.com/p/576475874
+
+如果要分配的内存过大一般是大于128bytes，那么就调用第一级配置器，用malloc和free
+
+如果是小于128bytes，就用第二级配置器，二级配置器使用内存池+自由链表（free_list)的形式避免了小块内存带来的碎片化，**提高了内存分配的效率以及内存利用率**。（为了降低小块内存带来的内存碎片和频繁申请释放的性能问题）
+
+![在这里插入图片描述](assets/b9768b5bc351f6b3cd24ba4e328928f8.png)
+
+free-list节点的定义：
+
+```c++
+ union _Obj {
+        union _Obj* _M_free_list_link; // 当块在自由链表上时使用
+        char _M_client_data[1];   // 当块被分配给客户端时使用 (实际大小会更大)
+  };
+```
+
+
+
+https://www.bilibili.com/video/BV1mWWeeZEwu?spm_id_from=333.788.player.switch&vd_source=5d4070cc138983fa1babce80b5a31622&p=29
+
+# 设计模式
+
+## 单例模式
+
+https://zhuanlan.zhihu.com/p/37469260
+
+懒汉模式：第一次使用的时候才初始化
+
+```c++
+// version 1.0
+// 传统的使用指针版本的懒汉模式，第一次初始化的时候时线程不安全的，需要通过双检测锁模式
+class Singleton
+{
+private:
+	static Singleton* instance;
+private:
+	Singleton() {};
+	~Singleton() {};
+	Singleton(const Singleton&);
+	Singleton& operator=(const Singleton&);
+public:
+	static Singleton* getInstance() 
+        {
+		if(instance == NULL) 
+			instance = new Singleton();
+		return instance;
+	}
+};
+// init static member
+Singleton* Singleton::instance = NULL;
+
+
+//-------------还有一个版本可以更好的体现懒汉，利用了C++11的特性，也就是局部静态变量只在第一次调用时初始化，因此就直接时线程安全的了
+class LazySingleton {
+public:
+    // 公有静态方法，返回实例的引用
+    static LazySingleton& getInstance() {
+        std::cout << "Thread " << std::this_thread::get_id() << " calling getInstance()." << std::endl;
+        // 函数局部静态变量，在第一次调用此函数时创建并初始化
+        // C++11标准保证这个初始化过程是线程安全的
+        static LazySingleton instance;
+        return instance;
+    }
+
+    void showMessage() {
+        std::cout << "Hello from Lazy Singleton (Meyers)!" << std::endl;
+    }
+
+private:
+    // 私有构造函数
+    LazySingleton() {
+        std::cout << "LazySingleton constructor called." << std::endl;
+    }
+
+    // 禁止拷贝构造和赋值操作
+    LazySingleton(const LazySingleton&) = delete;
+    LazySingleton& operator=(const LazySingleton&) = delete;
+
+    // 私有析构函数
+    ~LazySingleton() {
+        std::cout << "LazySingleton destructor called." << std::endl;
+    }
+};
+```
+
+懒汉模式的问题：内存泄漏（也就是说，`static Singleton* instance;`被创建出来之后，如果没有人手动销毁，那么它是不会被销毁的），多线程数据竞争
+
+解决方法:（内存泄漏）
+
+ 	1. 是使用智能指针，把`static Singleton* instance;`,换成`static std::unique_ptr<Singleton> instance_ptr;`
+ 	2. 使用类内静态成员变量（这是因为C++ 静态成员的析构函数是**自动调用**的。当程序终止时，静态成员会按照其构造顺序的逆序被销毁，并自动调用它们的析构函数。这与全局对象的行为类似。
+
+```c++
+class Singleton
+{
+private:
+	static Singleton* instance;
+private:
+	Singleton() { };
+	~Singleton() { };
+	Singleton(const Singleton&);
+	Singleton& operator=(const Singleton&);
+private:
+	class Deletor {
+	public:
+		~Deletor() {
+			if(Singleton::instance != NULL)
+				delete Singleton::instance;
+		}
+	};
+	static Deletor deletor;
+public:
+	static Singleton* getInstance() {
+		if(instance == NULL) {
+			instance = new Singleton();
+		}
+		return instance;
+	}
+};
+
+// init static member
+Singleton* Singleton::instance = NULL;
+```
+
+解决方法（多线程）：线程安全问题仅出现在第一次初始化（new）过程中
+
+使用双重检查锁定
+
+```c++
+static Singleton* getInstance() {
+	if(instance == NULL) {
+		Lock lock;  // 基于作用域的加锁，超出作用域，自动调用析构函数解锁
+        if(instance == NULL) {
+        	instance = new Singleton();
+        }
+	}
+	return instance;
+}
+//实现：
+atomic<Widget*> Widget::pInstance{ nullptr };
+Widget* Widget::Instance() {
+    if (pInstance == nullptr) { 
+        lock_guard<mutex> lock{ mutW }; 
+        if (pInstance == nullptr) { 
+            pInstance = new Widget(); 
+        }
+    } 
+    return pInstance;
+}
+```
+
+饿汉模式：
+
+饿汉版（Eager Singleton）：指单例实例在程序运行时被立即执行初始化
+
+```c++
+// version 1.3
+class Singleton
+{
+private:
+	static Singleton instance;
+private:
+	Singleton();
+	~Singleton();
+	Singleton(const Singleton&);
+	Singleton& operator=(const Singleton&);
+public:
+	static Singleton& getInstance() {
+		return instance;
+	}
+}
+
+// initialize defaultly
+Singleton Singleton::instance;
+```
+
+由于在main函数之前初始化，所以没有线程安全的问题。但是潜在问题在于no-local static对象（函数外的static对象）在不同编译单元中的初始化顺序是未定义的。也即，static Singleton instance;和 如果有**另一个编译单元B**中的某个no-local static对象 `OtherStaticObjectInB` 的初始化（即其构造函数执行）**依赖于** `Singleton::instance` 二者的初始化顺序不确定，如果在初始化完成之前调用 getInstance() 方法会返回一个未定义的实例。
+
+C++并不保证no-local static（也就是非函数内的局部的（local）static变量的初始化顺序）
+
+
+
+# 标准库
+
+## std::forword
+
+```c++
+template<typename T>
+T&& forward(T &param){
+    return static_cast<T&&>(param);
+}
+```
+
+std::forword是两套规则一起起作用
+
+第一个是类型推导规则：如果param是一个左值（比如int i =10），那么T就是int&。如果param是右值（比如10），那么T就是int
+
+第二个是引用折叠，
+
+> 
+> && + &&->&& : 右值的右值引用是右值
+>
+> && + &->& : 右值的左值引用是左值
+>
+> & + &&->& : 左值的右值引用是左值
+>
+> & + &->& : 左值的左值引用是左值
+
+static_cast<T&&>这里会触发折叠，如果是T是int&，那么static_cast<int& &&>会折叠为static_cast\<int&\>,并且值得注意的是，返回值那里的T&&也会发生折叠，折叠为int&
+
+## std::move
+
+std::move其实类似于forward，区别是他会先去掉引用，去掉引用的方法就是通过上述两个规则：
+
+```C++
+x template <class _Ty> 
+_NODISCARD constexpr remove_reference_t<_Ty>&& 
+    				move(_Ty&& _Arg) noexcept { // forward _Arg as movable    
+    return static_cast<remove_reference_t<_Ty>&&>(_Arg);}
+```
+
+根据\_Arg的类型，推断出\_Ty的类型，然后，下面一步就是去除类型，然后把它变为右值（还记得std::move的目的吗？）
+
+这里显然就是由`remove_reference_t`实现的，那么这个`remove_reference_t`是啥呢：
+
+```c++
+template <class _Ty>
+using remove_reference_t = typename remove_reference<_Ty>::type;
+
+```
+
+原来，`remove_reference_t`是一个别名，它是`remove_reference<_Ty>`这个类的类型成员:
+
+```c++
+template <class _Ty>
+struct remove_reference {
+    using type  = _Ty;
+    using _Const_thru_ref_type = const _Ty;
+};
+
+template <class _Ty>
+struct remove_reference<_Ty&> {
+    using type                 = _Ty;
+    using _Const_thru_ref_type = const _Ty&;
+};
+
+template <class _Ty>
+struct remove_reference<_Ty&&> {
+    using type                 = _Ty;
+    using _Const_thru_ref_type = const _Ty&&;
+};
+```
+
