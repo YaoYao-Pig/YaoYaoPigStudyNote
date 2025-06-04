@@ -248,3 +248,144 @@ C++的数据存储在哪里呢？
       它所管理的实际字符串数据，如果很短，可能会有小字符串优化（SSO）直接存在 `local_str` 对象内部（仍在栈上）；如果较长，则通常是在堆上动态分配的。 
 
 4. .code里，可能会有比如int i = 42 这样的局部数据，这些数据会以“立即数”的形式，被编码到.code存储的机器码指令当中，（其实是存在与寄存器上）并不是作为一个独立的变量存在的。只有当需要给这个变脸比如i一个内存地址，例如（&i）的时候，编译器通常会分配它在stack上
+
+# STL
+
+## std::sort
+
+https://feihu.me/blog/2014/sgi-std-sort/
+
+原理，优点和缺点
+
+1. 原理
+
+[Introspective Sorting](http://www.cs.rpi.edu/~musser/gp/index_1.html)(内省式排序)，它是一种混合式的排序算法，集成了前面提到的三种算法各自的优点：
+
+- 在数据量很大时采用正常的快速排序，此时效率为O(logN)。
+- 一旦分段后的数据量小于某个阈值，就改用插入排序，因为此时这个分段是基本有序的，这时效率可达O(N)。
+- 在递归过程中，如果递归层次过深，分割行为有恶化倾向时，它能够自动侦测出来，使用堆排序来处理，在此情况下，使其效率维持在堆排序的O(N logN)，但这又比一开始使用堆排序好。
+
+2. 优化点
+
+   1. **递归调用优化：**
+
+      看代码：
+
+      ```c++
+      template <class RandomAccessIterator>
+      inline void sort(RandomAccessIterator first, RandomAccessIterator last) {
+          if (first != last) {
+              __introsort_loop(first, last, value_type(first), __lg(last - first) * 2); //<-- sort
+              __final_insertion_sort(first, last); //<---插入排序
+          }
+      }
+      
+      template <class RandomAccessIterator, class T, class Size>
+      void __introsort_loop(RandomAccessIterator first,
+                            RandomAccessIterator last, T*,
+                            Size depth_limit) {
+          while (last - first > __stl_threshold) { //最小分段阈值 __introsort_loop
+              if (depth_limit == 0) {
+                  partial_sort(first, last, last);
+                  return;
+              }
+              --depth_limit;
+              RandomAccessIterator cut = __unguarded_partition   //分割算法（根据pivot的大小划分两部分）
+                (first, last, T(__median(*first, *(first + (last - first)/2),
+                                         *(last - 1)))); //三点中值
+              __introsort_loop(cut, last, value_type(first), depth_limit);
+              last = cut;
+          }
+      }
+      ```
+
+      这是C++ sort实现的一个版本
+
+      ```c++
+      function quicksort(array, left, right)
+          // If the list has 2 or more items
+      
+          if left < right
+              // See "#Choice of pivot" section below for possible choices
+      
+              choose any pivotIndex such that left ≤ pivotIndex ≤ right
+              // Get lists of bigger and smaller items and final position of pivot
+      
+              pivotNewIndex := partition(array, left, right, pivotIndex)
+              // Recursively sort elements smaller than the pivot (assume pivotNewIndex - 1 does not underflow)
+      
+              quicksort(array, left, pivotNewIndex - 1)
+              // Recursively sort elements at least as big as the pivot (assume pivotNewIndex + 1 does not overflow)
+      
+              quicksort(array, pivotNewIndex + 1, right)
+      ```
+
+      这是正常我们写快排的版本
+
+      有一个显著的区别，正常的sort当中，在完成区间分割之后会分别对左右两边继续递归调用，而\_\_introsort_loop版本当中，似乎只对右边分割了。但实际上，\_\_introsort_loop是把左边的一部分，在当前的递归层就直接展开了（也就是说，对于每一个分割后的区间，递归右侧，而左侧则在循环中分割，为更小的左右，右侧递归。。。）
+
+      ![两种递归调用对比](assets/stl-recursive-call-comparison.png)
+
+   2. #### 三点中值法
+
+   3. #### 分割算法： __unguarded_partition
+
+   ```c++
+   template <class RandomAccessIterator, class T>
+   RandomAccessIterator __unguarded_partition(RandomAccessIterator first, 
+                                              RandomAccessIterator last, 
+                                              T pivot) {
+       while (true) {
+           while (*first < pivot) ++first;
+           --last;
+           while (pivot < *last) --last;
+           if (!(first < last)) return first;
+           iter_swap(first, last);
+           ++first;
+       }
+   } 
+   ```
+
+   4. 深度恶化处理：partial_sort(其实是堆排序)`__introsort_loop`的最后一个参数`depth_limit`是前面所提到的判断分割行为是否有恶化倾向的阈值，即允许递归的深度，调用者传递的值为`2logN`。注意看`if`语句，当递归次数超过阈值时，函数调用`partial_sort`，它便是堆排序:
+
+   ```c++
+   template <class RandomAccessIterator, class T, class Compare>
+   void __partial_sort(RandomAccessIterator first, RandomAccessIterator middle,
+                       RandomAccessIterator last, T*, Compare comp) {
+       make_heap(first, middle, comp);
+       for (RandomAccessIterator i = middle; i < last; ++i)
+           if (comp(*i, *first))
+               __pop_heap(first, middle, i, T(*i), comp, distance_type(first));
+       sort_heap(first, middle, comp);
+   }
+   
+   template <class RandomAccessIterator, class Compare>
+   inline void partial_sort(RandomAccessIterator first,
+                            RandomAccessIterator middle,
+                            RandomAccessIterator last, Compare comp) {
+       __partial_sort(first, middle, last, value_type(first), comp);
+   }
+   ```
+
+   4. 插入排序，在sort大小小于_stl_threadhold的时候开始调用__final_insertion_sort(插入排序优化看上面的文章)
+
+```c++
+template <class RandomAccessIterator>
+void __final_insertion_sort(RandomAccessIterator first, 
+                            RandomAccessIterator last) {
+    if (last - first > __stl_threshold) {
+        __insertion_sort(first, first + __stl_threshold); //保证最小值一定在序列的最左边
+        __unguarded_insertion_sort(first + __stl_threshold, last); //剩下的就可以用不带边界检测的版本排序
+    }
+    else
+        __insertion_sort(first, last);
+}
+```
+
+插入排序这部分优化非常巧妙，总结来说是这样的：
+
+STL有一个__stl_threshold，快排的时候划分划分到这个threshold就可以停止了。这时候剩下的就是一个每个块之间有序，但是块内部无序的状态
+
+然后接下来，使用插入排序，插入排序对于第一小部分（也就是first - > first+threshold)这部分，使用基本的插入排序。然后对于第一小部分之后的部分，因为已经保证了最小值一定在区间之前，因此可以使用没有边界检测的插入排序，这样更快。
+
+对于特别小的序列，使用插入排序优化，对于递归特别深的部分，直接使用堆排序方式最坏情况
