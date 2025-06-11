@@ -619,10 +619,38 @@ C++并不保证no-local static（也就是非函数内的局部的（local）sta
 
 ## std::forword
 
+![image-20250611232001314](assets/image-20250611232001314.png)
+
 ```c++
-template<typename T>
-T&& forward(T &param){
-    return static_cast<T&&>(param);
+struct remove_reference {			
+    using type                 = _Ty;
+    using _Const_thru_ref_type = const _Ty;
+};
+template <class _Ty>
+struct remove_reference<_Ty&> {
+    using type                 = _Ty;
+    using _Const_thru_ref_type = const _Ty&;
+};
+
+template <class _Ty>
+struct remove_reference<_Ty&&> { //一般不会匹配到这里
+    using type                 = _Ty;
+    using _Const_thru_ref_type = const _Ty&&;
+};
+
+using remove_reference_t = typename remove_reference<_Ty>::type;
+//左值版本
+template <class _Ty>
+_NODISCARD constexpr _Ty&& forward(
+    remove_reference_t<_Ty>& _Arg) noexcept { // forward an lvalue as either an lvalue or an rvalue
+    return static_cast<_Ty&&>(_Arg);
+}
+ 
+//右值版本
+template <class _Ty>
+_NODISCARD constexpr _Ty&& forward(remove_reference_t<_Ty>&& _Arg) noexcept { // forward an rvalue as an rvalue
+    static_assert(!is_lvalue_reference_v<_Ty>, "bad forward call");
+    return static_cast<_Ty&&>(_Arg);
 }
 ```
 
@@ -643,9 +671,28 @@ std::forword是两套规则一起起作用
 
 static_cast<T&&>这里会触发折叠，如果是T是int&，那么static_cast<int& &&>会折叠为static_cast\<int&\>,并且值得注意的是，返回值那里的T&&也会发生折叠，折叠为int&
 
+> 那什么情况下会匹配到：
+>
+> ```c++
+> template <class _Ty>  
+> struct remove_reference<_Ty&&> { 
+> 
+>    using type   = _Ty; 
+> 
+>    using _Const_thru_ref_type = const _Ty&&; 
+> 
+>  };
+> ```
+>
+> 
+>
+> ![image-20250611232818569](assets/image-20250611232818569.png)
+
 ## std::move
 
-std::move其实类似于forward，区别是他会先去掉引用，去掉引用的方法就是通过上述两个规则：
+和std::forward的区别其实就是返回值的区别
+
+std::move其实类似于forward，他会先去掉引用，去掉引用的方法就是通过上述两个规则：
 
 ```C++
 x template <class _Ty> 
@@ -654,7 +701,7 @@ _NODISCARD constexpr remove_reference_t<_Ty>&&
     return static_cast<remove_reference_t<_Ty>&&>(_Arg);}
 ```
 
-根据\_Arg的类型，推断出\_Ty的类型，然后，下面一步就是去除类型，然后把它变为右值（还记得std::move的目的吗？）
+根据\_Arg的类型，推断出\_Ty的类型，然后，下面一步就是去除引用，然后把它变为右值（还记得std::move的目的吗？）
 
 这里显然就是由`remove_reference_t`实现的，那么这个`remove_reference_t`是啥呢：
 
@@ -686,3 +733,6 @@ struct remove_reference<_Ty&&> {
 };
 ```
 
+# string 优化
+
+https://www.cnblogs.com/YongSir/p/17066405.html

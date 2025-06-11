@@ -6,7 +6,67 @@
 
 ## Lua闭包：
 
-闭包本质上是个函数对象，Lua中函数对象同时保存了运行环境以及其要用到的数据。
+```c++
+typedef struct LClosure {
+  ClosureHeader;
+  struct Proto *p;       // 指向函数原型
+  UpVal *upvals[1];    // 指向 UpVal 对象的指针数组
+} LClosure;
+
+
+typedef struct Proto {
+  CommonHeader;
+  lu_byte numparams;  /* number of fixed (named) parameters */
+  lu_byte flag;
+  lu_byte maxstacksize;  /* number of registers needed by this function */
+  int sizeupvalues;  /* size of 'upvalues' */
+  int sizek;  /* size of 'k' */
+  int sizecode;
+  int sizelineinfo;
+  int sizep;  /* size of 'p' */
+  int sizelocvars;
+  int sizeabslineinfo;  /* size of 'abslineinfo' */
+  int linedefined;  /* debug information  */
+  int lastlinedefined;  /* debug information  */
+  TValue *k;  /* constants used by the function */
+  Instruction *code;  /* opcodes */
+  struct Proto **p;  /* functions defined inside the function */
+  Upvaldesc *upvalues;  /* upvalue information */
+  ls_byte *lineinfo;  /* information about source lines (debug information) */
+  AbsLineInfo *abslineinfo;  /* idem */
+  LocVar *locvars;  /* information about local variables (debug information) */
+  TString  *source;  /* used for debug information */
+  GCObject *gclist;
+} Proto;
+
+
+typedef struct UpVal {
+  CommonHeader;
+  union {
+    TValue *p;  /* points to stack or to its own value */
+    ptrdiff_t offset;  /* used while the stack is being reallocated */
+  } v;
+  union {
+    struct {  /* (when open) */
+      struct UpVal *next;  /* linked list */
+      struct UpVal **previous;
+    } open;
+    TValue value;  /* the value (when closed) */
+  } u;
+} UpVal;
+```
+
+
+
+闭包本质上是个函数对象，Lua中函数对象同时保存了函数字节码，运行环境以及其要用到的数据。
+
+### 字节码：
+
+字节码的保存是在proto当中的，
+
+Proto里存储的就是函数的字节码以及他要用到的upValue的信息。运行的时候会根据proto去创建对应的闭包实例，以及链接upvalue
+
+### Upvalue
 
 同时，Lua提供了当找不到需要数据的时候向外查找的能力，也就是Upvalue。
 
@@ -95,7 +155,7 @@ print(closure())  -- 输出 10
 1. **局部变量**：这些变量在函数执行时存在，并在函数调用结束时销毁。闭包无法访问这些局部变量。
 2. **Upvalue**：闭包访问的外部局部变量，这些变量会被保存在闭包的执行环境中，直到闭包不再被引用为止。
 
-### 通过 Upvalue 实现闭包的引用
+### 通过 Upvalue 实现闭包的引用 
 
 当 Lua 创建一个闭包时，**Lua 会为捕获的变量（upvalue）创建一个特殊的引用**。这些引用指向原始的局部变量。如果这些局部变量在闭包创建时依然有效，它们会成为 upvalue，并会保持与闭包的生命周期相同，直到闭包本身不再被引用。
 

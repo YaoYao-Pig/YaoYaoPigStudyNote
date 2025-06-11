@@ -6,6 +6,8 @@ https://zhuanlan.zhihu.com/p/2583367098
 
 ## UGUI架构
 
+https://www.bilibili.com/video/BV17W4y1d7dY/
+
 绘制，事件系统，射线检测，合批
 
 
