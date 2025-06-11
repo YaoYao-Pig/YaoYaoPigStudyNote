@@ -98,7 +98,7 @@ protected virtual void UpdateGeometry()
 
 `Rebuild` 过程充当了一个桥梁，将 `Image` 组件高级属性（如 `color`）的变化，转化为底层的顶点数据更新，并最终通过 `CanvasRenderer` 反映到渲染层面。
 
-
+willRenderCanvases事件的触发时机是在所有update之后，canvas渲染之前
 
 LayoutRebuild继承链：
 

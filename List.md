@@ -2,6 +2,8 @@
 
 [LuaGC](.\Lua\LuaGC.md)
 
+[Lua基础面经](.\Lua\Lua基础面经.md)
+
 # C++
 
 [基础八股](.\C++\C++基础面经.md)
