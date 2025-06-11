@@ -639,14 +639,14 @@ struct remove_reference<_Ty&&> { //一般不会匹配到这里
 };
 
 using remove_reference_t = typename remove_reference<_Ty>::type;
-//左值版本
+//正常情况下就是走这一条
 template <class _Ty>
 _NODISCARD constexpr _Ty&& forward(
     remove_reference_t<_Ty>& _Arg) noexcept { // forward an lvalue as either an lvalue or an rvalue
     return static_cast<_Ty&&>(_Arg);
 }
  
-//右值版本
+//容灾：一般不用，只在：试图将一个右值当作左值转发
 template <class _Ty>
 _NODISCARD constexpr _Ty&& forward(remove_reference_t<_Ty>&& _Arg) noexcept { // forward an rvalue as an rvalue
     static_assert(!is_lvalue_reference_v<_Ty>, "bad forward call");
@@ -671,14 +671,12 @@ std::forword是两套规则一起起作用
 
 static_cast<T&&>这里会触发折叠，如果是T是int&，那么static_cast<int& &&>会折叠为static_cast\<int&\>,并且值得注意的是，返回值那里的T&&也会发生折叠，折叠为int&
 
-> 那什么情况下会匹配到：
+> Q1：那什么情况下会匹配到：
 >
 > ```c++
 > template <class _Ty>  
 > struct remove_reference<_Ty&&> { 
-> 
->    using type   = _Ty; 
-> 
+>    using type   = _Ty;
 >    using _Const_thru_ref_type = const _Ty&&; 
 > 
 >  };
@@ -687,6 +685,59 @@ static_cast<T&&>这里会触发折叠，如果是T是int&，那么static_cast<in
 > 
 >
 > ![image-20250611232818569](assets/image-20250611232818569.png)
+>
+> Q2: 正常使用都是用：
+>
+> ```c++
+> template <class _Ty>
+> _NODISCARD constexpr _Ty&& forward(
+>     remove_reference_t<_Ty>& _Arg) noexcept { // forward an lvalue as either an lvalue or an rvalue
+>     return static_cast<_Ty&&>(_Arg);
+> }
+> ```
+>
+> 这个版本，为什么？：
+>
+> ![image-20250611234159854](assets/image-20250611234159854.png)
+>
+> ![image-20250611234210310](assets/image-20250611234210310.png)
+>
+> > 那么什么时候才会用下面那个版本呢?
+> >
+> > ```c++
+> > template <class _Ty>
+> > _NODISCARD constexpr _Ty&& forward(remove_reference_t<_Ty>&& _Arg) noexcept { // forward an rvalue as an rvalue
+> >     static_assert(!is_lvalue_reference_v<_Ty>, "bad forward call");
+> >     return static_cast<_Ty&&>(_Arg);
+> > }
+> > ```
+> >
+> > ![image-20250611234319152](assets/image-20250611234319152.png)
+> >
+> > ![image-20250611234411586](assets/image-20250611234411586.png)
+
+我想来总结一下：实际上，forward的关键在于对于\_Ty到底是什么的推导，以及返回值时候的static_cast。
+
+我们在传入一个参数给std：：forward的时候，一般都是传入一个左值：
+
+```c++
+template<T>
+void func(T&& arg){
+    std::forward<T>(arg);
+}
+```
+
+这个arg本身就是左值，但是func传入实参的左右值不同，会印象T的推导（实参是左值，那么T就是int&，实参是右值那么T就是int)，进一步对于T类型的推导会导致std::forward这个模板函数的传入模板参数不一样。
+
+最终导致std::forward返回值的时候的引用折叠的不一样。而因为传入的本质上arg就是一个左值，因此正常来说就是会匹配到第一种实现（也就是所谓的左值版本）
+
+右值版本的本质上是为了防止有人写出：arg确实是一个右值（比如42，“”这样的临时变量）传给forward，而模板参数写的又奇奇怪怪的时候：
+
+```c++
+std::forward<int&&>(42);//这会调用右值版本，但是是很多余的
+```
+
+
 
 ## std::move
 
