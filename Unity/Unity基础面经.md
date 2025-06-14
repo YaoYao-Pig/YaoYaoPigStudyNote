@@ -402,3 +402,109 @@ public static void MarkLayoutForRebuild(RectTransform rect)
 
 也就是说：计算的时候是先递归，然后从下到上的根据自己的子节点计算自身的布局，而控制的时候是从自身出发，自上而下的控制自己和自己子节点的布局。
 
+# ECS
+
+https://zhuanlan.zhihu.com/p/6489668907
+
+![image-20250612192530449](assets/image-20250612192530449.png)
+
+组件化架构 和 ECS:
+
+组件化架构的例子：
+
+> 比如说我这样一个帧同步框架： 
+>
+>  对于Move，我有一个MoveManager，而Player作为一个PlayerEntity，下面有一个MoveComponent。而EnemyEntity也有一个MoveComponent。 
+>
+>  MoveManager不知道什么Entity，它只知道MoveComponent的索引，在驱动的时候，每一次Update运行的时候，MoveManager都会调用它索引的MoveComponent的Update。
+
+```c#
+class MoveComponent {
+    void Update() {
+        // 移动的逻辑在这里
+    }
+}
+
+class MoveManager {
+    List<MoveComponent> components;
+    void Update() {
+        for (comp in components) {
+            comp.Update(); // 调用组件自己的方法
+        }
+    }
+}
+```
+
+而ECS的例子：
+
+```c#
+struct MoveComponent { // 这是一个纯数据结构 (struct)
+    Vector3 speed;
+    float rotationSpeed;
+}
+
+struct TransformComponent {
+    Vector3 position;
+}
+
+class MoveSystem { // 注意这里叫 System
+    void Update(float deltaTime) {
+        // 查询所有同时拥有 MoveComponent 和 TransformComponent 的实体
+        for (Entity e : world.Query<MoveComponent, TransformComponent>()) {
+            MoveComponent& moveData = world.GetComponent<MoveComponent>(e);
+            TransformComponent& transformData = world.GetComponent<TransformComponent>(e);
+
+            // 移动的逻辑完全在 System 中！
+            transformData.position += moveData.speed * deltaTime;
+        }
+    }
+}
+```
+
+组件化和纯粹 ECS 最大的区别在于 **“逻辑放在了哪里”**。
+
+- `MoveManager` 调用 `MoveComponent` **自己的 `Update` 方法**。这意味着**逻辑（行为）存在于组件（Component）中**。
+- **纯粹的 ECS 设计**: **组件（Component）只包含数据，不包含任何方法或逻辑**。**系统（System）（Manager）包含所有逻辑**，它会获取组件的数据并对其进行处理。
+
+![img](assets/v2-fb25e4a6f0e1687b33f29122ea80dcd0_1440w.jpg)
+
+# 寻路
+
+AStar，JPS
+
+
+
+A*
+
+gained（已知）和heuristic（预测）final（最终）
+
+每次从openList中取出一个节点（openList根据FCost排序，每次取FCost最小）
+
++ 查看邻居节点，并且对于不在closeList的邻居，计算邻居节经由当前节点的GCost(gained)。
+  + 如果邻居在OpenList中，且新的GCost<它在OpenList里的GCost，那么就说明找到了一条新的更短的路径
+  + 如果不在OPenList里，就直接加入
+
+> 为什么AStar算法能保证找到一条最短路径？
+>
+> 启发函数（也就是HCost的计算），必须是可采纳的，也就是估计出来的到终点的距离必须小于等于真实的成本
+>
+> ![image-20250612200900193](assets/image-20250612200900193.png)
+
+
+
+BFS，DFS，Floyd，Dijkstra
+
+
+
+Dijkstra:
+
+> **如果将 A\* 算法的启发函数 h(n) 设为 0，那么 A* 算法就完全等价于 Dijkstra 算法。**
+>
+> Dijkstra 算法和 A* 算法**关系非常密切，可以说 A\* 算法就是 Dijkstra 算法的一个优化和扩展**。
+
+Dijkstra 算法是一种用于在**带权有向图或无向图**中，查找从**单个源点**到所有其他节点**最短路径**的算法。它的一个核心前提是：图中所有的边的**权重都必须是非负数**。
+
+![image-20250612201042065](assets/image-20250612201042065.png)
+
+Navmesh
+
