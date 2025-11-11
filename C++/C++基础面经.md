@@ -971,6 +971,14 @@ https://www.cnblogs.com/YongSir/p/17066405.html
 
 ![image-20251111194519262](assets/image-20251111194519262.png)
 
+## 虚函数的位置和虚函数表的位置
+
+虚函数存储在Code段
+
+虚函数表的位置存储在data段
+
+虚函数的相对位置在编译的时候就已经确定好了，就像正常的函数一样。
+
 # C++类
 
 ## This指针
@@ -990,7 +998,11 @@ https://www.cnblogs.com/YongSir/p/17066405.html
 
 https://www.cnblogs.com/jans2002/archive/2006/10/13/528160.html
 
-
+> 成员函数指针的实现是不是不同编译器都不一样啊。我了解下来里面至少要存储：this的delta偏移，虚函数表的索引，函数本身的地址（我猜测应该是一个指向Code段的地址，存储的应该是编译后的指令码）
+>
+> ![image-20251111211153395](assets/image-20251111211153395.png)
+>
+> ![image-20251111211200852](assets/image-20251111211200852.png)
 
 
 
