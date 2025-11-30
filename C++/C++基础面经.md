@@ -16,6 +16,8 @@ static修饰的变量都存储在静态存储区，程序运行期间一直存�
 
 # C++里面四种强制类型转换
 
+https://www.bilibili.com/video/BV11r1FBWE9B/?spm_id_from=333.337.search-card.all.click
+
 首先转换这个概念有几个分类：
 
 显式/隐式
@@ -1113,6 +1115,18 @@ https://zhuanlan.zhihu.com/p/596002108
 这时候Main.cpp编译的时候，因为他找不到Print\<int\>和Print\<double\>这些版本，因此他会希望链接的时候，从其他编译单元找到Print\<int\>和Print\<double\>这两个函数的实现。
 
 但实际上，其他的编译单元中也没有这两个函数的实现，因为模板只会在使用的时候才会实例化成具体类型
+
+# 内存相关
+
+## malloc和free
+
+https://www.bilibili.com/video/BV16o4y1S7Gj/?spm_id_from=333.1387.favlist.content.click
+
+## memCopy，MemSet，Mmap
+
+
+
+
 
 # 杂七杂八
 

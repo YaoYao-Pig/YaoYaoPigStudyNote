@@ -1,4 +1,6 @@
-# 合批
+# UGUI
+
+## 合批
 
 动态/静态合批 + UGUI合批
 
@@ -6,7 +8,7 @@ https://gwb.tencent.com/community/detail/113040
 
 https://gwb.tencent.com/community/detail/114323
 
-# Rebuild和Rebatch的区别
+## Rebuild和Rebatch的区别
 
 https://zhuanlan.zhihu.com/p/3445975684
 
@@ -470,11 +472,7 @@ class MoveSystem { // 注意这里叫 System
 
 # 寻路
 
-AStar，JPS
-
-
-
-A*
+## A*
 
 gained（已知）和heuristic（预测）final（最终）
 
@@ -492,9 +490,7 @@ gained（已知）和heuristic（预测）final（最终）
 
 
 
-BFS，DFS，Floyd，Dijkstra
-
-
+## BFS，DFS，Floyd，Dijkstra
 
 Dijkstra:
 
@@ -506,5 +502,19 @@ Dijkstra 算法是一种用于在**带权有向图或无向图**中，查找从*
 
 ![image-20250612201042065](assets/image-20250612201042065.png)
 
-Navmesh
+## Navmesh
+
+# C#和C++
+
+## Unity运行时
+
+## IL2CPP
+
+# 垃圾回收
+
+# UnityGC原理
+
+
+
+# 优化原理
 
