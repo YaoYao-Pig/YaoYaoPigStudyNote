@@ -6,6 +6,10 @@ https://blog.uwa4d.com/archives/USparkle_inf_UnityEngine.html
 
 https://mp.weixin.qq.com/s/0XFQt8LmqoTxxst_kKDMjw?
 
+## ！！Unity文件管理
+
+[Unity文件管理](./Unity文件管理.md)
+
 ## 资源分类
 
 我们显然需要一个资源管理方案，来适配游戏开发的流程。而我们只有先了解Uinty自身的资源管理方案才能指定自己的资源管理器
