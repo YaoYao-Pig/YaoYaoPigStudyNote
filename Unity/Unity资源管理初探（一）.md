@@ -31,17 +31,21 @@ https://mp.weixin.qq.com/s/0XFQt8LmqoTxxst_kKDMjw?
 
 ## Meta文件
 
+[Unity文件、文件引用、Meta详解 - UWA问答 | 博客 | 游戏及VR应用性能优化记录分享 | 侑虎科技](https://blog.uwa4d.com/archives/USparkle_inf_UnityEngine.html)
+
 对于Unity的文件管理，我们先从Meta文件开始。。Meta文件实质上是一个文本文档，只是采用的是一种叫做YAML的格式来写的。
 
 Unity当中，会为每一个文件分配一个GUID，这个GUID由Unity保证了全局唯一性。
 
 这里我们在讨论Object，我们知道一个Asset可能对应多个子文件，比如一个Prefab下可能有多个子文件。一个图集下有多个图片。那么这个GUID只能对应一个文件，而对于一个文件下有多个文件的情况，就需要另外一个ID来表示，这就是LocalID。更习惯用Meta文件中的名字FileID。
 
+![image-20251207185944893](assets/image-20251207185944893.png)
+
 ## AB包
 
 https://blog.uwa4d.com/archives/USparkle_Addressable3.html
 
-
+ [Unity资源管理初探（二）.md](Unity资源管理初探（二）.md) 
 
 ## UMT-AB包
 

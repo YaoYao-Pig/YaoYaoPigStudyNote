@@ -39,7 +39,7 @@ Asset文件的组成很有趣，文件头部存在一个目录表 (Table of Cont
 
 这些Object的数据块是什么呢？是序列化的C++对象。因为Unity的底层是C++，所以，这些Object实际上是内存上序列化后的C++对象，这样做可以使得，使用的时候只需要直接反序列化为C++对象就可以在底层运行
 
-## 查找文件的流程
+## 查找文件的流程——FileGUID和LocalID
 
 现在可以引入FileGUID和LocalID了。
 
@@ -277,3 +277,8 @@ graph TD
     linkStyle 9 stroke:blue,stroke-width:4px;
 ```
 
+## InstanceID
+
+InstanceID本质上是一个缓存系统，对于已经加载过的Object，PersistentManager会维护Instance ID和File GUID、Local ID的映射关系，定位Object源数据的位置以及维护内存中（如果有）Object的实例。
+
+只要系统解析到一个Instance ID，就能快速找到代表这个Instance ID的已加载的对象。如果Object没有被加载，File GUID和Local ID也可以快速地定位到指定的Asset资源从而即时进行资源加载。
