@@ -1,0 +1,28 @@
+# Unity资源管理初探（二）
+
+## AB包
+
+AB包本质是一种压缩。压缩的是什么呢？其实就是.assets文件，ab包的SeriliazedFile，就是Unity打包完之后的.assets文件，或者说，只要ab包解压完之后，就是.assets。这些.assets文件才是打包后unity运行时的基础。ab包相当于一个快递员
+
+AB包的物理存储单位是Block，逻辑上的单元是Serialized File，逻辑上的最小单元是精简后的Object数据，AB包里已经没有Asset或者Artifact的概念，只有Object
+
+AB包有三层索引，第一层索引是根据Manifest或者自定义的系统找到的AB包，找到AB包之后，AB包是会维护AssetName和(FileGUID,LocalID）这个映射关系的。之后用FileGUID找到对应的SeriliaizedFile，第三层是用LocalID找到对应的Object。这个FileGUID是全局AB包唯一的
+
+AB包里的prefab是如何索引其他AB包里的Texture的呢？答案也是通过FileGUID和LocalID。
+prefab是一个yaml，如果在编辑器环境下他存储的是一个GUID和LocalID，用来找到Library下的artifact，打AB包的时候，是把yaml里转换为了AB里的FileGUID和LocalID了。这时候的FileGUID指向的就是SeriliazedFile了。
+上面有提到默认的.assets和ab包里的SeriliazedFile本质上完全一样。因此他们的寻址方式我也是一样的。
+只是说ab包是多个.assets文件压缩在一起，而默认的.assets是分开放，但是他们都有唯一的fileguid
+同时，AB包的，AssetName和Fileguid以及Localid的映射是AB包喝开发者管理来管理的，但是默认assets是Unity管理的（其实二者最底层都还是Unity在管
+
+![5961793fddb58dff5f9fb716914532c5](assets/5961793fddb58dff5f9fb716914532c5.jpg)
+
+## ManiFest
+
+Manifest里存储了：包体之间的依赖关系，Manifest 主要负责存储包与包之间的依赖关系。虽然生成的 .manifest 文件里记录了包内包含的资源列表，但为了加载效率，我们通常会自己维护一套‘资源名 -> AB包名’的映射表。当调用 LoadFromFile 时，实际上只是把 AB 的头部索引信息加载进内存，只有真正调用 LoadAsset 时，系统才会根据索引去磁盘读取对应的资源数据。因此需要另外一个系统维护，AB包LoadFile的时候只是让它加载啥它加载啥
+
+**Manifest分两种**
+
+一个是主Manifest，这里不存Asset，只存有哪些AB包，以及这些AB包依赖哪些AB包，还有AB包的hash。这个Manifest是二进制文件，是需要默认加载的。
+剩下一种是每个AB包对应的Manifest，这里面存储每个AB包对应的Asset，这个文件是YAML文件，一般都不用，而是自己维护一个映射，这一般是编辑器环境下AssetDatabase的GetALLDependense会使用，运行时大部分情况下删了也没事。
+
+ps：.asset文件是ScriptableObject
